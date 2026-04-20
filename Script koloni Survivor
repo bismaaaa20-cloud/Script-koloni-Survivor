@@ -1,0 +1,184 @@
+-- ======================================================
+-- PAPA'S ULTIMATE DASHBOARD: FULL CONTROL + ANTI-AFK
+-- ======================================================
+
+getgenv().dupe = true 
+getgenv().FarmAktif = true -- Status awal Farm
+
+getgenv().Config = {
+    KillAll = true,
+    KillRadius = 3000, 
+    AttackDelay = 0.1,
+    Damage = 999999,
+    GodModeAktif = true, 
+    AutoEquip = true,
+    SlotTarget = "5",
+    AntiLagEnabled = true
+}
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local VIM = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+
+-- 1. ANTI-AFK INTERNAL (TETAP JALAN SELALU)
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- 2. UI DASHBOARD FULLSCREEN
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local ToggleButton = Instance.new("TextButton")
+local ControlButton = Instance.new("TextButton") -- Tombol On/Off Farm
+local Title = Instance.new("TextLabel")
+local DayLabel = Instance.new("TextLabel")
+local TimerLabel = Instance.new("TextLabel")
+
+ScreenGui.Name = "PapaControl_UI"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Tombol Menu (Pojok Kiri Atas)
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+ToggleButton.Position = UDim2.new(0.02, 0, 0.05, 0)
+ToggleButton.Size = UDim2.new(0, 80, 0, 35)
+ToggleButton.Text = "MENU"
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.Font = Enum.Font.GothamBold
+
+-- Frame Utama Dashboard
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.BackgroundTransparency = 0.4 
+MainFrame.Size = UDim2.new(1, 0, 1, 0) 
+MainFrame.Visible = true 
+
+local function createLabel(text, pos, size, color)
+    local lbl = Instance.new("TextLabel")
+    lbl.Parent = MainFrame
+    lbl.BackgroundTransparency = 1
+    lbl.Position = pos
+    lbl.Size = UDim2.new(1, 0, 0, 50)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = color or Color3.new(1, 1, 1)
+    lbl.Text = text
+    lbl.TextSize = size
+    return lbl
+end
+
+Title = createLabel("PAPA'S CONTROL CENTER", UDim2.new(0, 0, 0.2, 0), 32)
+DayLabel = createLabel("Hari ke: 0", UDim2.new(0, 0, 0.35, 0), 26, Color3.fromRGB(0, 255, 127))
+TimerLabel = createLabel("Waktu Sesi: 00:00:00", UDim2.new(0, 0, 0.45, 0), 22)
+
+-- TOMBOL MATI / NYALAKAN FARM
+ControlButton.Parent = MainFrame
+ControlButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+ControlButton.Position = UDim2.new(0.35, 0, 0.6, 0)
+ControlButton.Size = UDim2.new(0.3, 0, 0, 50)
+ControlButton.Font = Enum.Font.GothamBold
+ControlButton.Text = "STATUS: FARM ON"
+ControlButton.TextColor3 = Color3.new(1, 1, 1)
+ControlButton.TextSize = 18
+
+-- Fungsi On/Off Script Farm
+ControlButton.MouseButton1Click:Connect(function()
+    getgenv().FarmAktif = not getgenv().FarmAktif
+    if getgenv().FarmAktif then
+        ControlButton.Text = "STATUS: FARM ON"
+        ControlButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        getgenv().dupe = true
+    else
+        ControlButton.Text = "STATUS: FARM OFF"
+        ControlButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+        getgenv().dupe = false
+    end
+end)
+
+ToggleButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- 3. LOGIKA TIMER & HARI
+local startTime = tick()
+task.spawn(function()
+    while task.wait(1) do
+        local diff = tick() - startTime
+        TimerLabel.Text = string.format("Waktu Sesi: %02d:%02d:%02d", math.floor(diff/3600), math.floor((diff%3600)/60), math.floor(diff%60))
+        local currentDay = game:GetService("Lighting"):GetAttribute("Day") or "Syncing..."
+        DayLabel.Text = "Hari Saat Ini: " .. tostring(currentDay)
+    end
+end)
+
+-- 4. FITUR FARM (KILL ALL, SKIP DAY, GOD MODE) - TERIKAT TOMBOL ON/OFF
+task.spawn(function()
+    while task.wait(0.1) do
+        if getgenv().FarmAktif and getgenv().Config.KillAll and LocalPlayer.Character then
+            local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then
+                for _, v in ipairs(workspace:GetDescendants()) do
+                    if v:IsA("Humanoid") and v.Parent ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(v.Parent) then
+                        local enemyRoot = v.Parent:FindFirstChild("HumanoidRootPart")
+                        if enemyRoot and (myRoot.Position - enemyRoot.Position).Magnitude <= getgenv().Config.KillRadius then
+                            if v.Health > 0 then
+                                v.Health = 0
+                                pcall(function()
+                                    local remote = ReplicatedStorage:FindFirstChild("Attack") or ReplicatedStorage:FindFirstChild("Hit")
+                                    if remote then remote:FireServer(v, getgenv().Config.Damage) end
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.01) do
+        if getgenv().FarmAktif and getgenv().dupe then
+            pcall(function() ReplicatedStorage.Events.SkipDay:FireServer() end)
+        end
+    end
+end)
+
+local function AktifkanGodMode(char)
+    local hum = char:WaitForChild("Humanoid")
+    RunService.RenderStepped:Connect(function()
+        if getgenv().FarmAktif and getgenv().Config.GodModeAktif and hum.Health < hum.MaxHealth then
+            hum.Health = hum.MaxHealth
+        end
+    end)
+    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+end
+if LocalPlayer.Character then AktifkanGodMode(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(AktifkanGodMode)
+
+-- 5. AUTO EQUIP & ANTI-LAG
+task.spawn(function()
+    while task.wait(0.5) do
+        if getgenv().FarmAktif and getgenv().Config.AutoEquip and LocalPlayer.Character then
+            local t = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+            if t and not LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+                LocalPlayer.Character.Humanoid:EquipTool(t)
+                task.wait(0.1)
+                VIM:SendKeyEvent(true, Enum.KeyCode.Five, false, game)
+                VIM:SendKeyEvent(false, Enum.KeyCode.Five, false, game)
+            end
+        end
+    end
+end)
+
+if getgenv().Config.AntiLagEnabled then
+    game:GetService("Lighting").GlobalShadows = false
+    for _, v in ipairs(game:GetDescendants()) do
+        if v:IsA("Part") then v.Material = Enum.Material.SmoothPlastic v.CastShadow = false end
+    end
+end
+
+print("--- PAPA CONTROL UI DENGAN TOMBOL ON/OFF AKTIF ---")
