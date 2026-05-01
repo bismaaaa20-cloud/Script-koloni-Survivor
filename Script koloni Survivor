@@ -1,11 +1,12 @@
--- ======================================================
--- PAPA'S ULTIMATE DASHBOARD: FULL CONTROL + ANTI-AFK
--- ======================================================
+--[[
+    KOLONI SURVIVAL ULTIMATE - GOD EDITION
+    DEVELOPED BY BISMA | VERSION 4.0
+    INTEGRATED MASTER CONFIG & ADVANCED UI
+]]
 
-getgenv().dupe = true 
-getgenv().FarmAktif = true -- Status awal Farm
-
+-- // 1. MASTER CONFIGURATION
 getgenv().Config = {
+    -- Master Settings (Request Baru)
     KillAll = true,
     KillRadius = 3000, 
     AttackDelay = 0.1,
@@ -13,172 +14,208 @@ getgenv().Config = {
     GodModeAktif = true, 
     AutoEquip = true,
     SlotTarget = "5",
-    AntiLagEnabled = true
+    AntiLagEnabled = true,
+    
+    -- Legacy Settings
+    AuraKill = true,
+    FreezeAllNPC = true,
+    AutoLoot = true,
+    AutoEat = true,
+    AdminSpoof = true,
+    WalkSpeed = 50,
+    JumpPower = 50,
+    LootRadius = 500,
+    FullBright = true,
+    ESP_Enabled = true
 }
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- // 2. SERVICES & VARIABLES
+local LP = game.Players.LocalPlayer
+local RS = game:GetService("ReplicatedStorage")
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
-local VIM = game:GetService("VirtualInputManager")
-local VirtualUser = game:GetService("VirtualUser")
 
--- 1. ANTI-AFK INTERNAL (TETAP JALAN SELALU)
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
-
--- 2. UI DASHBOARD FULLSCREEN
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local ToggleButton = Instance.new("TextButton")
-local ControlButton = Instance.new("TextButton") -- Tombol On/Off Farm
-local Title = Instance.new("TextLabel")
-local DayLabel = Instance.new("TextLabel")
-local TimerLabel = Instance.new("TextLabel")
-
-ScreenGui.Name = "PapaControl_UI"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false
-
--- Tombol Menu (Pojok Kiri Atas)
-ToggleButton.Parent = ScreenGui
-ToggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-ToggleButton.Position = UDim2.new(0.02, 0, 0.05, 0)
-ToggleButton.Size = UDim2.new(0, 80, 0, 35)
-ToggleButton.Text = "MENU"
-ToggleButton.TextColor3 = Color3.new(1, 1, 1)
-ToggleButton.Font = Enum.Font.GothamBold
-
--- Frame Utama Dashboard
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-MainFrame.BackgroundTransparency = 0.4 
-MainFrame.Size = UDim2.new(1, 0, 1, 0) 
-MainFrame.Visible = true 
-
-local function createLabel(text, pos, size, color)
-    local lbl = Instance.new("TextLabel")
-    lbl.Parent = MainFrame
-    lbl.BackgroundTransparency = 1
-    lbl.Position = pos
-    lbl.Size = UDim2.new(1, 0, 0, 50)
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextColor3 = color or Color3.new(1, 1, 1)
-    lbl.Text = text
-    lbl.TextSize = size
-    return lbl
+-- // 3. ADMIN SPOOFER ENGINE (ADVANCED)
+if getgenv().Config.AdminSpoof then
+    local mt = getrawmetatable(game)
+    local oldIndex = mt.__index
+    setreadonly(mt, false)
+    mt.__index = newcclosure(function(t, k)
+        if not checkcaller() and t:IsA("Player") and (k == "IsInGroup" or k == "GetRankInGroup") then
+            return function() return 255 end 
+        end
+        return oldIndex(t, k)
+    end)
+    setreadonly(mt, true)
 end
 
-Title = createLabel("PAPA'S CONTROL CENTER", UDim2.new(0, 0, 0.2, 0), 32)
-DayLabel = createLabel("Hari ke: 0", UDim2.new(0, 0, 0.35, 0), 26, Color3.fromRGB(0, 255, 127))
-TimerLabel = createLabel("Waktu Sesi: 00:00:00", UDim2.new(0, 0, 0.45, 0), 22)
+-- // 4. NOTIFICATION SYSTEM
+local function Notify(title, text)
+    local NotificationGui = Instance.new("ScreenGui", LP.PlayerGui)
+    local Frame = Instance.new("Frame", NotificationGui)
+    Frame.Size = UDim2.new(0, 250, 0, 80)
+    Frame.Position = UDim2.new(1, 0, 0.8, 0)
+    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    Instance.new("UICorner", Frame)
+    
+    local T = Instance.new("TextLabel", Frame)
+    T.Size = UDim2.new(1, 0, 0.4, 0)
+    T.Text = title; T.TextColor3 = Color3.new(1, 1, 1); T.BackgroundTransparency = 1; T.Font = "GothamBold"
+    
+    local C = Instance.new("TextLabel", Frame)
+    C.Size = UDim2.new(1, 0, 0.6, 0); C.Position = UDim2.new(0, 0, 0.4, 0)
+    C.Text = text; C.TextColor3 = Color3.new(0.8, 0.8, 0.8); C.BackgroundTransparency = 1; C.Font = "Gotham"
+    
+    Frame:TweenPosition(UDim2.new(0.8, 0, 0.8, 0), "Out", "Quart", 0.5)
+    task.delay(3, function()
+        Frame:TweenPosition(UDim2.new(1, 0, 0.8, 0), "In", "Quart", 0.5)
+        task.wait(0.5); NotificationGui:Destroy()
+    end)
+end
 
--- TOMBOL MATI / NYALAKAN FARM
-ControlButton.Parent = MainFrame
-ControlButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-ControlButton.Position = UDim2.new(0.35, 0, 0.6, 0)
-ControlButton.Size = UDim2.new(0.3, 0, 0, 50)
-ControlButton.Font = Enum.Font.GothamBold
-ControlButton.Text = "STATUS: FARM ON"
-ControlButton.TextColor3 = Color3.new(1, 1, 1)
-ControlButton.TextSize = 18
+-- // 5. UI CONSTRUCTION (EXTENDED)
+local ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
+ScreenGui.Name = "Bisma_GodEdition"
+ScreenGui.ResetOnSpawn = false
 
--- Fungsi On/Off Script Farm
-ControlButton.MouseButton1Click:Connect(function()
-    getgenv().FarmAktif = not getgenv().FarmAktif
-    if getgenv().FarmAktif then
-        ControlButton.Text = "STATUS: FARM ON"
-        ControlButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-        getgenv().dupe = true
-    else
-        ControlButton.Text = "STATUS: FARM OFF"
-        ControlButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-        getgenv().dupe = false
-    end
-end)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 450, 0, 600)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -300)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+local MainCorner = Instance.new("UICorner", MainFrame)
 
-ToggleButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
+local SideBar = Instance.new("Frame", MainFrame)
+SideBar.Size = UDim2.new(0, 120, 1, 0)
+SideBar.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+Instance.new("UICorner", SideBar)
 
--- 3. LOGIKA TIMER & HARI
-local startTime = tick()
+local Title = Instance.new("TextLabel", SideBar)
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Text = "BISMA V4.0"
+Title.TextColor3 = Color3.fromRGB(0, 120, 255)
+Title.Font = "GothamBold"
+Title.BackgroundTransparency = 1
+
+local Container = Instance.new("ScrollingFrame", MainFrame)
+Container.Size = UDim2.new(1, -140, 1, -20)
+Container.Position = UDim2.new(0, 130, 0, 10)
+Container.BackgroundTransparency = 1
+Container.CanvasSize = UDim2.new(0, 0, 8, 0) -- Kanvas Sangat Panjang
+Container.ScrollBarThickness = 2
+
+local UIList = Instance.new("UIListLayout", Container)
+UIList.Padding = UDim.new(0, 10)
+
+-- // 6. COMPONENT BUILDER
+local function CreateToggle(name, key)
+    local Btn = Instance.new("TextButton", Container)
+    Btn.Size = UDim2.new(1, -10, 0, 45)
+    Btn.BackgroundColor3 = getgenv().Config[key] and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(30, 30, 35)
+    Btn.Text = name
+    Btn.TextColor3 = Color3.new(1, 1, 1)
+    Btn.Font = "GothamBold"
+    Instance.new("UICorner", Btn)
+    
+    Btn.MouseButton1Click:Connect(function()
+        getgenv().Config[key] = not getgenv().Config[key]
+        TS:Create(Btn, TweenInfo.new(0.3), {BackgroundColor3 = getgenv().Config[key] and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(30, 30, 35)}):Play()
+        Notify("Config Updated", name .. " is now " .. (getgenv().Config[key] and "ON" or "OFF"))
+    end)
+end
+
+local function CreateSlider(name, key, min, max)
+    local SFrame = Instance.new("Frame", Container); SFrame.Size = UDim2.new(1, -10, 0, 60); SFrame.BackgroundTransparency = 1
+    local L = Instance.new("TextLabel", SFrame); L.Size = UDim2.new(1, 0, 0, 25); L.Text = name .. " : " .. getgenv().Config[key]; L.TextColor3 = Color3.new(1,1,1); L.BackgroundTransparency = 1
+    local B = Instance.new("Frame", SFrame); B.Size = UDim2.new(1, -20, 0, 5); B.Position = UDim2.new(0, 10, 0, 35); B.BackgroundColor3 = Color3.new(0.2,0.2,0.2)
+    local F = Instance.new("Frame", B); F.Size = UDim2.new((getgenv().Config[key]-min)/(max-min), 0, 1, 0); F.BackgroundColor3 = Color3.new(0, 0.5, 1)
+    
+    B.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            local move = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseMovement then
+                    local p = math.clamp((i.Position.X - B.AbsolutePosition.X) / B.AbsoluteSize.X, 0, 1)
+                    F.Size = UDim2.new(p, 0, 1, 0)
+                    local v = math.floor(min + (p * (max - min)))
+                    getgenv().Config[key] = v; L.Text = name .. " : " .. v
+                end
+            end)
+            i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then move:Disconnect() end end)
+        end
+    end)
+end
+
+-- // 7. REGISTERING ALL PRO FEATURES
+CreateToggle("Aura Kill All", "KillAll")
+CreateToggle("God Mode Master", "GodModeAktif")
+CreateToggle("Auto Equip Target", "AutoEquip")
+CreateToggle("Freeze All Enemies", "FreezeAllNPC")
+CreateToggle("Auto Loot & Pickup", "AutoLoot")
+CreateToggle("Auto Consume Food", "AutoEat")
+CreateSlider("Combat Radius", "KillRadius", 100, 5000)
+CreateSlider("Movement Speed", "WalkSpeed", 16, 500)
+CreateSlider("Jump Power", "JumpPower", 50, 1000)
+CreateToggle("Full Brightness", "FullBright")
+CreateToggle("Anti Lag System", "AntiLagEnabled")
+CreateToggle("Admin Spoofing", "AdminSpoof")
+
+-- // 8. CORE ENGINE (HIGH PERFORMANCE)
 task.spawn(function()
-    while task.wait(1) do
-        local diff = tick() - startTime
-        TimerLabel.Text = string.format("Waktu Sesi: %02d:%02d:%02d", math.floor(diff/3600), math.floor((diff%3600)/60), math.floor(diff%60))
-        local currentDay = game:GetService("Lighting"):GetAttribute("Day") or "Syncing..."
-        DayLabel.Text = "Hari Saat Ini: " .. tostring(currentDay)
-    end
-end)
+    while true do
+        task.wait(getgenv().Config.AttackDelay)
+        local success, err = pcall(function()
+            local Char = LP.Character
+            local Hum = Char:FindFirstChild("Humanoid")
+            local Hrp = Char:FindFirstChild("HumanoidRootPart")
+            
+            -- Basic Buffs
+            Hum.WalkSpeed = getgenv().Config.WalkSpeed
+            Hum.JumpPower = getgenv().Config.JumpPower
+            if getgenv().Config.GodModeAktif then Hum.Health = Hum.MaxHealth end
+            if getgenv().Config.FullBright then Lighting.ClockTime = 14; Lighting.Brightness = 2; Lighting.OutdoorAmbient = Color3.new(1,1,1) end
 
--- 4. FITUR FARM (KILL ALL, SKIP DAY, GOD MODE) - TERIKAT TOMBOL ON/OFF
-task.spawn(function()
-    while task.wait(0.1) do
-        if getgenv().FarmAktif and getgenv().Config.KillAll and LocalPlayer.Character then
-            local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myRoot then
-                for _, v in ipairs(workspace:GetDescendants()) do
-                    if v:IsA("Humanoid") and v.Parent ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(v.Parent) then
-                        local enemyRoot = v.Parent:FindFirstChild("HumanoidRootPart")
-                        if enemyRoot and (myRoot.Position - enemyRoot.Position).Magnitude <= getgenv().Config.KillRadius then
-                            if v.Health > 0 then
-                                v.Health = 0
-                                pcall(function()
-                                    local remote = ReplicatedStorage:FindFirstChild("Attack") or ReplicatedStorage:FindFirstChild("Hit")
-                                    if remote then remote:FireServer(v, getgenv().Config.Damage) end
-                                end)
-                            end
+            -- Auto Equip Logic (Slot Targeting)
+            if getgenv().Config.AutoEquip then
+                local tool = LP.Backpack:FindFirstChild(getgenv().Config.SlotTarget) or LP.Backpack:FindFirstChildWhichIsA("Tool")
+                if tool then Hum:EquipTool(tool) end
+            end
+
+            -- Combat & Interaction Scan
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Humanoid") and v.Parent ~= Char then
+                    local tHrp = v.Parent:FindFirstChild("HumanoidRootPart")
+                    if tHrp and (Hrp.Position - tHrp.Position).Magnitude <= getgenv().Config.KillRadius then
+                        -- Attack Execution
+                        if getgenv().Config.KillAll or getgenv().Config.AuraKill then
+                            local Remote = RS:FindFirstChild("Attack") or RS:FindFirstChild("Hit")
+                            if Remote then Remote:FireServer(v, getgenv().Config.Damage) end
                         end
+                        -- Freeze Force
+                        if getgenv().Config.FreezeAllNPC then tHrp.Anchored = true end
+                    end
+                end
+                
+                -- Advanced Auto Loot
+                if getgenv().Config.AutoLoot and (v:IsA("TouchTransmitter") or v:IsA("ClickDetector")) then
+                    local part = v.Parent:IsA("BasePart") and v.Parent or v.Parent:FindFirstChildWhichIsA("BasePart")
+                    if part and (Hrp.Position - part.Position).Magnitude <= getgenv().Config.LootRadius then
+                        part.CFrame = Hrp.CFrame
                     end
                 end
             end
-        end
+        end)
+        if not success then warn("Engine Error: " .. err) end
     end
 end)
 
-task.spawn(function()
-    while task.wait(0.01) do
-        if getgenv().FarmAktif and getgenv().dupe then
-            pcall(function() ReplicatedStorage.Events.SkipDay:FireServer() end)
-        end
+-- Toggle Menu Keybind
+UIS.InputBegan:Connect(function(i, c)
+    if not c and i.KeyCode == Enum.KeyCode.RightControl then
+        MainFrame.Visible = not MainFrame.Visible
+        Notify("UI Toggle", "Menu is now " .. (MainFrame.Visible and "Visible" or "Hidden"))
     end
 end)
 
-local function AktifkanGodMode(char)
-    local hum = char:WaitForChild("Humanoid")
-    RunService.RenderStepped:Connect(function()
-        if getgenv().FarmAktif and getgenv().Config.GodModeAktif and hum.Health < hum.MaxHealth then
-            hum.Health = hum.MaxHealth
-        end
-    end)
-    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-end
-if LocalPlayer.Character then AktifkanGodMode(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(AktifkanGodMode)
-
--- 5. AUTO EQUIP & ANTI-LAG
-task.spawn(function()
-    while task.wait(0.5) do
-        if getgenv().FarmAktif and getgenv().Config.AutoEquip and LocalPlayer.Character then
-            local t = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
-            if t and not LocalPlayer.Character:FindFirstChildOfClass("Tool") then
-                LocalPlayer.Character.Humanoid:EquipTool(t)
-                task.wait(0.1)
-                VIM:SendKeyEvent(true, Enum.KeyCode.Five, false, game)
-                VIM:SendKeyEvent(false, Enum.KeyCode.Five, false, game)
-            end
-        end
-    end
-end)
-
-if getgenv().Config.AntiLagEnabled then
-    game:GetService("Lighting").GlobalShadows = false
-    for _, v in ipairs(game:GetDescendants()) do
-        if v:IsA("Part") then v.Material = Enum.Material.SmoothPlastic v.CastShadow = false end
-    end
-end
-
-print("--- PAPA CONTROL UI DENGAN TOMBOL ON/OFF AKTIF ---")
+Notify("Script Loaded", "Bisma Koloni V4.0 is Ready!")
